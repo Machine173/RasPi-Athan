@@ -57,12 +57,7 @@ volume_levels = {
     'suhoor': 0.6
 }
 
-
-
-
 def playAudio(targetAudioDevice, prayer):
-
-
 
     if not confirmServerStart():
         return
