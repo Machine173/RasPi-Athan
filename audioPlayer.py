@@ -62,46 +62,33 @@ volume_levels = {
 
 def playAudio(targetAudioDevice, prayer):
 
+
+
     if not confirmServerStart():
         return
-    
+        
     audioFile = audio_files.get(prayer, audio_files['dhuhr'])
     volumeLvl = volume_levels.get(prayer, 0.5)
-    
 
-    try:
-        chromecasts, browser = pychromecast.get_chromecasts()
-        if not chromecasts:
-            logging.error("No Chromecast devices found.")
-            return
+    def found_device_callback(uuid, name):
+        if name == targetAudioDevice:
+            cast = browser.get_cast(uuid)
+            cast.wait()
+            logging.info(f"Connected to Chromecast named '{name}'. Setting volume to {volumeLvl}.")
+            cast.set_volume(volumeLvl)
+            mc = MediaController()
+            cast.register_handler(mc)
+            mc.play_media(audioFile, 'audio/mp3')
+            mc.block_until_active()
+            logging.info(f"Playing audio: {audioFile}")
+            while not mc.status.player_is_idle:
+                time.sleep(1)
+            logging.info("Audio playback finished.")
+            browser.stop_discovery()
 
-        # Attempt to find the specific Chromecast device by name
-        cast = next((cc for cc in chromecasts if cc.name == targetAudioDevice), None)
-        if cast is None:
-            logging.error(f"Chromecast device named '{targetAudioDevice}' not found.")
-            return
+    browser = CastBrowser(found_device_callback, None)
+    browser.start_discovery()
 
-        # Connect to the device
-        cast.wait()
-        logging.info(f"Connected to Chromecast named '{targetAudioDevice}'. Setting volume to {volumeLvl}.")
-        cast.set_volume(volumeLvl)
-
-        # Play the audio file
-        mc = cast.media_controller
-        mc.play_media(audioFile, 'audio/mp3')
-        mc.block_until_active()
-        logging.info(f"Playing audio: {audioFile}")
-
-        # Wait for the audio to finish playing
-        while not mc.status.player_is_idle:
-            time.sleep(1)
-
-        logging.info("Audio playback finished.")
-
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
-
-    finally:
-        # Ensure the Chromecast discovery service is properly stopped
-        pychromecast.discovery.stop_discovery(browser)
+    # Give some time for discovery
+    time.sleep(30)  # Adjust this duration as necessary
 
